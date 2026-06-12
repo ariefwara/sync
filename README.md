@@ -14,15 +14,23 @@ Files are synced in real-time via UDP discovery + TCP transfer.
 
 ## Install
 
-### One-liner (macOS / Linux)
+### macOS / Linux (one-liner)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/ariefwara/sync/main/install.sh | bash
 ```
 
-This downloads the pre-built binary to `/usr/local/bin/sync`.
+Installs to `/usr/local/bin/sync`.
 
-### Or build from source
+### Windows (PowerShell)
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/ariefwara/sync/main/install.ps1 | iex"
+```
+
+Installs to `%USERPROFILE%\go\bin\sync.exe`.
+
+### Build from source (any OS)
 
 ```bash
 git clone https://github.com/ariefwara/sync.git
