@@ -1,95 +1,128 @@
-# sync — Sinkronisasi Folder P2P via LAN
+# sync — P2P Folder Sync over LAN
 
-Tool sinkronisasi folder *peer-to-peer* tanpa server. Cukup jalankan di dua komputer yang terhubung di LAN, folder akan otomatis sinkron.
-
-## Cara Pakai
+Zero-config peer-to-peer folder synchronization for local networks. No server, no setup, no cloud.
 
 ```bash
-sync .                  # sync folder saat ini
-sync /path/ke/folder    # sync folder tertentu
+# On machine A
+sync ./project
+
+# On machine B
+sync ./project
 ```
 
-Nama komputer diambil otomatis dari OS (`hostname`). Tidak perlu konfigurasi.
+Files are synced in real-time via UDP discovery + TCP transfer.
 
-## Cara Kerja
+## Install
 
-1. Setiap peer mengirim **UDP broadcast** (port 43210) setiap 5 detik
-2. Peer lain yang mendengar akan membalas dan terhubung via **TCP** (port 43211)
-3. Perubahan file (`fsnotify` + periodic scan) langsung disebarkan ke semua peer
-4. File diidentifikasi dengan hash **SHA256** — hanya file yang berbeda yang ditransfer
+### One-liner (macOS / Linux)
 
-## Instalasi
+```bash
+curl -sSL https://raw.githubusercontent.com/ariefwara/sync/main/install.sh | bash
+```
 
-### Build dari source
+This downloads the pre-built binary to `/usr/local/bin/sync`.
+
+### Or build from source
 
 ```bash
 git clone https://github.com/ariefwara/sync.git
 cd sync
-go build -o sync ./cmd/sync-lan
+go build -o /usr/local/bin/sync ./cmd/sync-lan
 ```
 
-Atau tinggal copy binary yang sudah di-build:
+Requires Go 1.21+.
+
+## Usage
 
 ```bash
-cp build/sync ~/bin/sync
+sync .                  # sync current directory
+sync ~/Documents/proj   # sync a specific directory
 ```
 
-## Penggunaan di Dua Komputer
+The device name is taken from your OS hostname automatically. No flags, no config file.
 
-**Komputer A:**
-```bash
-sync ~/Documents/proyek
+### Two-machine example
+
+**Machine A (MacBook):**
 ```
-
-**Komputer B:**
-```bash
-sync ~/Documents/proyek
-```
-
-Setelah kedua peer jalan, coba buat file di salah satu komputer:
-
-```bash
-echo "halo" > ~/Documents/proyek/test.txt
-```
-
-File akan muncul di komputer lain dalam beberapa detik.
-
-## Port yang Digunakan
-
-| Port | Protocol | Fungsi |
-|------|----------|--------|
-| 43210 | UDP | Discovery (broadcast PING/PONG) |
-| 43211 | TCP | Transfer file |
-
-## Jika Port Sudah Dipakai
-
-Jika ada instance lain yang sudah menggunakan port yang sama (misalnya sudah jalan di folder lain), instance kedua akan langsung berhenti dengan pesan:
-
-```
-sync sudah berjalan di folder ini (port 43211 sudah dipakai)
-```
-
-## Output
-
-```
-sync — mensinkronkan /Users/ariefwara/Documents/proyek
+$ sync ~/projects/notes
+sync — syncing /Users/alice/projects/notes
       device: macbook-pro
-      menunggu peer di LAN...
-
-  + peer bergabung
-  ↑ laporan.docx
-  ↓ foto.png
+      waiting for peers on LAN...
 ```
 
-- `+` peer ditemukan
-- `↑` file terkirim ke peer
-- `↓` file diterima dari peer
+**Machine B (Desktop):**
+```
+$ sync ~/projects/notes
+sync — syncing /home/bob/projects/notes
+      device: desktop-pc
+      waiting for peers on LAN...
 
-## Batasan
+  + peer joined           ← discovered automatically
+```
 
-- Hanya bekerja dalam **satu subnet LAN** (karena UDP broadcast tidak melewati router)
-- Tidak ada enkripsi bawaan (gunakan VPN jika perlu keamanan di jaringan publik)
-- Konflik file menggunakan strategi *last-writer-wins* (file dengan modifikasi terbaru yang menang)
+Now create a file on either machine:
+```bash
+echo "meeting notes" > ~/projects/notes/todo.md
+```
+
+It appears on the other machine in seconds:
+```
+  ↓ todo.md
+```
+
+## How it works
+
+1. Every 5 seconds, each peer broadcasts a **UDP PING** on port **43210**
+2. Other peers respond with a **PONG** containing their TCP address
+3. File changes are detected via `fsnotify` (real-time) + periodic full scan
+4. Changed files are identified by **SHA256** hash — only differences are transferred
+5. Metadata is broadcast first; file content is pulled on demand via TCP
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| 43210 | UDP | Peer discovery (broadcast) |
+| 43211 | TCP | File transfer |
+
+## Output reference
+
+```
+  + peer joined     a new peer was discovered on the LAN
+  ↑ report.docx     file sent to peer
+  ↓ photo.png       file received from peer
+```
+
+## Port conflict
+
+If another instance is already running on the same ports, the second one exits immediately:
+
+```
+sync is already running (port 43211 is in use)
+```
+
+## Limitations
+
+- **LAN only** — UDP broadcast does not cross routers. Use a VPN (Tailscale, ZeroTier) if you need sync over the internet.
+- **No encryption** — data is sent in plain TCP. Use a VPN on untrusted networks.
+- **Conflict resolution** — *last-writer-wins* (the file with the most recent modification time wins).
+- **Not a backup** — deletes are propagated. If you delete a file on one machine, it is deleted everywhere.
+
+## All transport options
+
+This repo includes 5 transport backends for different needs:
+
+| Binary | Discovery | Range |
+|--------|-----------|-------|
+| `sync-lan` (default) | UDP broadcast | LAN (1 subnet) |
+| `sync-mdns` | mDNS/DNS-SD | LAN (multi subnet) |
+| `sync-dht` | Kademlia DHT | Internet |
+| `sync-pex` | Peer Exchange | Internet |
+| `sync-webrtc` | WebRTC | Internet (NAT traversal) |
+
+Build any of them:
+```bash
+go build -o sync-dht ./cmd/sync-dht
+```
 
 ## License
 
