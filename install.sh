@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="ariefwara/sync"
-BIN="${SYNC_BIN:-/usr/local/bin/sync}"
+BIN="${SYNC_BIN:-/usr/local/bin/lansync}"
 TMPDIR=""
 
 cleanup() { rm -rf "$TMPDIR"; }
@@ -37,29 +37,29 @@ if [ -z "${FALLBACK:-}" ]; then
   
   # Get latest release download URL
   API_URL="https://api.github.com/repos/$REPO/releases/latest"
-  ASSET="sync-${RELEASE_OS}-${ARCH}"
+  ASSET="lansync-${RELEASE_OS}-${ARCH}"
   DOWNLOAD_URL=$(curl -sSL "$API_URL" | grep -oP '"browser_download_url": "\K[^"]*'"$ASSET"'[^"]*' | head -1 || true)
   
   if [ -n "$DOWNLOAD_URL" ]; then
     info "Downloading $ASSET ..."
-    curl -sSL -o "$TMPDIR/sync" "$DOWNLOAD_URL" || { warn "Download failed — falling back to source build"; FALLBACK=1; }
+    curl -sSL -o "$TMPDIR/lansync" "$DOWNLOAD_URL" || { warn "Download failed — falling back to source build"; FALLBACK=1; }
     
     if [ -z "${FALLBACK:-}" ]; then
-      chmod +x "$TMPDIR/sync"
+      chmod +x "$TMPDIR/lansync"
       
       # Test it
-      "$TMPDIR/sync" --help >/dev/null 2>&1 || true
+      "$TMPDIR/lansync" --help >/dev/null 2>&1 || true
       
       if [ -w "$(dirname "$BIN")" ]; then
-        cp "$TMPDIR/sync" "$BIN"
+        cp "$TMPDIR/lansync" "$BIN"
       else
         info "Installing to $BIN (requires sudo) ..."
-        sudo cp "$TMPDIR/sync" "$BIN"
+        sudo cp "$TMPDIR/lansync" "$BIN"
       fi
       
       echo ""
       info "Installed to $BIN"
-      info "Run 'sync .' to start syncing the current directory"
+      info "Run 'lansync .' to start syncing the current directory"
       exit 0
     fi
   else
@@ -78,12 +78,12 @@ if [ -n "${FALLBACK:-}" ]; then
   info "Cloning $REPO ..."
   git clone --depth=1 "https://github.com/$REPO.git" . 2>/dev/null || err "Failed to clone repository"
 
-  info "Building sync ..."
-  go build -o "$BIN" ./cmd/sync-lan 2>&1 || err "Build failed"
+  info "Building lansync ..."
+  go build -o "$BIN" ./cmd/lansync 2>&1 || err "Build failed"
   chmod +x "$BIN"
 
   echo ""
   info "Installed to $BIN (built from source)"
-  info "Run 'sync .' to start syncing the current directory"
+  info "Run 'lansync .' to start syncing the current directory"
   exit 0
 fi

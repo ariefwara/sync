@@ -41,12 +41,12 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build -o sync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/sync-lan
+        run: go build -o lansync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/lansync
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sync-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: sync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          name: lansync-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: lansync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
           if-no-files-found: error
 
   release:
@@ -58,16 +58,16 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: sync-*
+          pattern: lansync-*
           merge-multiple: true
 
       - name: Generate checksums
         run: |
-          sha256sum sync-* > checksums.txt
+          sha256sum lansync-* > checksums.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            sync-*
+            lansync-*
           generate_release_notes: true

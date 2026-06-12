@@ -11,7 +11,7 @@ if (-not $BinDir) {
         $BinDir = "$env:USERPROFILE\go\bin"
     }
 }
-$BinPath = "$BinDir\sync.exe"
+$BinPath = "$BinDir\lansync.exe"
 
 function Write-Info($msg) { Write-Host "==> $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "==> $msg" -ForegroundColor Yellow }
@@ -64,7 +64,7 @@ try {
                 Copy-Item -Path $ExePath -Destination $BinPath -Force
                 Write-Info "Installed to $BinPath"
                 Write-Info "Make sure $BinDir is in your PATH"
-                Write-Info "Run 'sync .' to start syncing"
+                Write-Info "Run 'lansync .' to start syncing"
                 exit 0
             }
         }
@@ -92,14 +92,14 @@ try {
         Write-Err "Failed to clone repository"
     }
 
-    Write-Info "Building sync ..."
-    $Build = go build -o "$BinPath" .\cmd\sync-lan 2>&1
+    Write-Info "Building lansync ..."
+    $Build = go build -o "$BinPath" .\cmd\lansync 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Err "Build failed: $Build"
     }
 
     Write-Info "Installed to $BinPath (built from source)"
-    Write-Info "Run 'sync .' to start syncing"
+    Write-Info "Run 'lansync .' to start syncing"
 }
 finally {
     Pop-Location

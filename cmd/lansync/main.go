@@ -1,8 +1,8 @@
-// sync — sinkronisasi folder P2P via LAN.
+// lansync — sinkronisasi folder P2P via LAN.
 //
 // Penggunaan:
-//   sync .          sync folder saat ini
-//   sync /path      sync folder tertentu
+//   lansync .          sync folder saat ini
+//   lansync /path      sync folder tertentu
 //
 // Nama komputer diambil otomatis dari OS. Jika port sudah dipakai
 // (instance lain sudah jalan), maka yang kedua langsung exit.
@@ -64,7 +64,7 @@ func main() {
 		cancel()
 	}()
 
-	fmt.Printf("sync — mensinkronkan %s\n", absDir)
+	fmt.Printf("lansync — mensinkronkan %s\n", absDir)
 	fmt.Printf("      device: %s\n", hostname)
 	fmt.Println("      menunggu peer di LAN...")
 	fmt.Println()
@@ -89,7 +89,7 @@ func main() {
 		// Cek apakah error karena port already in use
 		if strings.Contains(err.Error(), "address already in use") ||
 			strings.Contains(err.Error(), "EADDRINUSE") {
-			fmt.Fprintf(os.Stderr, "sync sudah berjalan di folder ini (port 43211 sudah dipakai)\n")
+			fmt.Fprintf(os.Stderr, "lansync sudah berjalan di folder ini (port 43211 sudah dipakai)\n")
 			os.Exit(1)
 		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

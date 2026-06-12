@@ -1,5 +1,6 @@
-build/
-.env
 *.exe
-*.test
 *.out
+*.test
+.env
+build/
+lansync

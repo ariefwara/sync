@@ -1,13 +1,13 @@
-# sync — P2P Folder Sync over LAN
+# lansync — P2P Folder Sync over LAN
 
 Zero-config peer-to-peer folder synchronization for local networks. No server, no setup, no cloud.
 
 ```bash
 # On machine A
-sync ./project
+lansync ./project
 
 # On machine B
-sync ./project
+lansync ./project
 ```
 
 Files are synced in real-time via UDP discovery + TCP transfer.
@@ -20,7 +20,7 @@ Files are synced in real-time via UDP discovery + TCP transfer.
 curl -sSL https://raw.githubusercontent.com/ariefwara/sync/main/install.sh | bash
 ```
 
-Installs to `/usr/local/bin/sync`.
+Installs to `/usr/local/bin/lansync`.
 
 ### Windows (PowerShell)
 
@@ -28,14 +28,14 @@ Installs to `/usr/local/bin/sync`.
 powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/ariefwara/sync/main/install.ps1 | iex"
 ```
 
-Installs to `%USERPROFILE%\go\bin\sync.exe`.
+Installs to `%USERPROFILE%\go\bin\lansync.exe`.
 
 ### Build from source (any OS)
 
 ```bash
 git clone https://github.com/ariefwara/sync.git
 cd sync
-go build -o /usr/local/bin/sync ./cmd/sync-lan
+go build -o /usr/local/bin/lansync ./cmd/lansync
 ```
 
 Requires Go 1.21+.
@@ -43,8 +43,8 @@ Requires Go 1.21+.
 ## Usage
 
 ```bash
-sync .                  # sync current directory
-sync ~/Documents/proj   # sync a specific directory
+lansync .                  # sync current directory
+lansync ~/Documents/proj   # sync a specific directory
 ```
 
 The device name is taken from your OS hostname automatically. No flags, no config file.
@@ -53,16 +53,16 @@ The device name is taken from your OS hostname automatically. No flags, no confi
 
 **Machine A (MacBook):**
 ```
-$ sync ~/projects/notes
-sync — syncing /Users/alice/projects/notes
+$ lansync ~/projects/notes
+lansync — syncing /Users/alice/projects/notes
       device: macbook-pro
       waiting for peers on LAN...
 ```
 
 **Machine B (Desktop):**
 ```
-$ sync ~/projects/notes
-sync — syncing /home/bob/projects/notes
+$ lansync ~/projects/notes
+lansync — syncing /home/bob/projects/notes
       device: desktop-pc
       waiting for peers on LAN...
 
@@ -105,7 +105,7 @@ It appears on the other machine in seconds:
 If another instance is already running on the same ports, the second one exits immediately:
 
 ```
-sync is already running (port 43211 is in use)
+lansync is already running (port 43211 is in use)
 ```
 
 ## Limitations
