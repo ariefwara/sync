@@ -5,41 +5,82 @@ REPO="ariefwara/sync"
 BIN="${SYNC_BIN:-/usr/local/bin/sync}"
 TMPDIR=""
 
-cleanup() {
-  rm -rf "$TMPDIR"
-}
+cleanup() { rm -rf "$TMPDIR"; }
 trap cleanup EXIT
 
 # ---- colors ----
-RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info()  { printf "${GREEN}==>${NC} %s\n" "$*"; }
+warn()  { printf "${YELLOW}==>${NC} %s\n" "$*"; }
 err()   { printf "${RED}!!>${NC} %s\n" "$*" >&2; exit 1; }
 
-# ---- check prerequisites ----
-command -v go >/dev/null 2>&1 || err "Go is required but not installed. See https://go.dev/dl/"
-
-# ---- detect go install path ----
-GOBIN="$(go env GOBIN 2>/dev/null || true)"
-if [ -z "$GOBIN" ]; then
-  GOPATH="$(go env GOPATH 2>/dev/null || echo "$HOME/go")"
-  GOBIN="$GOPATH/bin"
+# ---- detect platform ----
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64|amd64) ARCH="amd64" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  *) warn "Unsupported architecture: $ARCH — falling back to source build"; FALLBACK=1 ;;
+esac
+if [ "$OS" != "linux" ]; then
+  warn "Only Linux binary is pre-built — falling back to source build"
+  FALLBACK=1
 fi
 
-# ---- install ----
-info "Installing sync to $BIN ..."
+# ---- try downloading pre-built binary ----
+if [ -z "${FALLBACK:-}" ]; then
+  TMPDIR="$(mktemp -d)"
+  
+  info "Fetching latest release from GitHub ..."
+  
+  # Get latest release download URL
+  API_URL="https://api.github.com/repos/$REPO/releases/latest"
+  DOWNLOAD_URL=$(curl -sSL "$API_URL" | grep -oP '"browser_download_url": "\K[^"]*sync-linux-amd64[^"]*' | head -1 || true)
+  
+  if [ -n "$DOWNLOAD_URL" ]; then
+    info "Downloading sync-linux-amd64 ..."
+    curl -sSL -o "$TMPDIR/sync" "$DOWNLOAD_URL" || { warn "Download failed — falling back to source build"; FALLBACK=1; }
+    
+    if [ -z "${FALLBACK:-}" ]; then
+      chmod +x "$TMPDIR/sync"
+      
+      # Test it
+      "$TMPDIR/sync" --help >/dev/null 2>&1 || true
+      
+      if [ -w "$(dirname "$BIN")" ]; then
+        cp "$TMPDIR/sync" "$BIN"
+      else
+        info "Installing to $BIN (requires sudo) ..."
+        sudo cp "$TMPDIR/sync" "$BIN"
+      fi
+      
+      echo ""
+      info "Installed to $BIN"
+      info "Run 'sync .' to start syncing the current directory"
+      exit 0
+    fi
+  else
+    warn "No release found — building from source"
+    FALLBACK=1
+  fi
+fi
 
-# Create temp directory for building
-TMPDIR="$(mktemp -d)"
-cd "$TMPDIR"
+# ---- fallback: build from source ----
+if [ -n "${FALLBACK:-}" ]; then
+  command -v go >/dev/null 2>&1 || err "Go is required. Install from https://go.dev/dl/ or push a version tag to create a pre-built release."
 
-info "Cloning $REPO ..."
-git clone --depth=1 "https://github.com/$REPO.git" . 2>/dev/null || err "Failed to clone repository"
+  TMPDIR="$(mktemp -d)"
+  cd "$TMPDIR"
 
-info "Building sync (LAN broadcast version) ..."
-go build -o "$BIN" ./cmd/sync-lan 2>&1 || err "Build failed"
+  info "Cloning $REPO ..."
+  git clone --depth=1 "https://github.com/$REPO.git" . 2>/dev/null || err "Failed to clone repository"
 
-chmod +x "$BIN"
+  info "Building sync ..."
+  go build -o "$BIN" ./cmd/sync-lan 2>&1 || err "Build failed"
+  chmod +x "$BIN"
 
-echo ""
-info "Installed to $BIN"
-info "Run 'sync .' to start syncing the current directory"
+  echo ""
+  info "Installed to $BIN (built from source)"
+  info "Run 'sync .' to start syncing the current directory"
+  exit 0
+fi
