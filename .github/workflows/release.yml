@@ -14,21 +14,17 @@ jobs:
           - goos: linux
             goarch: amd64
             ext: ''
-            runner: ubuntu-latest
           - goos: windows
             goarch: amd64
             ext: '.exe'
-            runner: ubuntu-latest
           - goos: darwin
             goarch: amd64
             ext: ''
-            runner: ubuntu-latest
           - goos: darwin
             goarch: arm64
             ext: ''
-            runner: ubuntu-latest
 
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -41,12 +37,12 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build -o lansync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/lansync
+        run: go build -o lan-sync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: lansync-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: lansync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          name: lan-sync-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: lan-sync-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
           if-no-files-found: error
 
   release:
@@ -58,16 +54,16 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: lansync-*
+          pattern: lan-sync-*
           merge-multiple: true
 
       - name: Generate checksums
         run: |
-          sha256sum lansync-* > checksums.txt
+          sha256sum lan-sync-* > checksums.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            lansync-*
+            lan-sync-*
           generate_release_notes: true

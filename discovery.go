@@ -1,4 +1,4 @@
-package lan
+package main
 
 import (
 	"context"
@@ -10,8 +10,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/ariefwara/sync/pkg/core"
 )
 
 const (
@@ -30,17 +28,17 @@ type DiscoveryMessage struct {
 	Address string `json:"address"`
 }
 
-type Transport struct {
+type LanTransport struct {
 	id      string
 	name    string
 	syncDir string
 
-	peers   map[string]core.PeerInfo
+	peers   map[string]PeerInfo
 	peersMu sync.RWMutex
 
-	metaCh      chan core.FileMeta
-	fileCh      chan core.FileTransfer
-	snapshotCh  chan map[string]core.FileMeta
+	metaCh     chan FileMeta
+	fileCh     chan FileTransfer
+	snapshotCh chan map[string]FileMeta
 
 	udpConn *net.UDPConn
 	tcpLn   net.Listener
@@ -49,36 +47,36 @@ type Transport struct {
 	wg     sync.WaitGroup
 }
 
-func NewTransport(syncDir, deviceName string) *Transport {
+func NewTransport(syncDir, deviceName string) *LanTransport {
 	hostname, _ := os.Hostname()
 	id := fmt.Sprintf("lan-%s-%d", hostname, time.Now().UnixNano())
-	return &Transport{
+	return &LanTransport{
 		id:         id,
 		name:       deviceName,
 		syncDir:    syncDir,
-		peers:      make(map[string]core.PeerInfo),
-		metaCh:     make(chan core.FileMeta, 100),
-		fileCh:     make(chan core.FileTransfer, 50),
-		snapshotCh: make(chan map[string]core.FileMeta, 10),
+		peers:      make(map[string]PeerInfo),
+		metaCh:     make(chan FileMeta, 100),
+		fileCh:     make(chan FileTransfer, 50),
+		snapshotCh: make(chan map[string]FileMeta, 10),
 	}
 }
 
-func (t *Transport) SelfID() string                                    { return t.id }
-func (t *Transport) ReceiveMeta() <-chan core.FileMeta                 { return t.metaCh }
-func (t *Transport) ReceiveFile() <-chan core.FileTransfer             { return t.fileCh }
-func (t *Transport) ReceiveSnapshot() <-chan map[string]core.FileMeta  { return t.snapshotCh }
+func (t *LanTransport) SelfID() string                                  { return t.id }
+func (t *LanTransport) ReceiveMeta() <-chan FileMeta                    { return t.metaCh }
+func (t *LanTransport) ReceiveFile() <-chan FileTransfer                { return t.fileCh }
+func (t *LanTransport) ReceiveSnapshot() <-chan map[string]FileMeta     { return t.snapshotCh }
 
-func (t *Transport) Peers() []core.PeerInfo {
+func (t *LanTransport) Peers() []PeerInfo {
 	t.peersMu.RLock()
 	defer t.peersMu.RUnlock()
-	list := make([]core.PeerInfo, 0, len(t.peers))
+	list := make([]PeerInfo, 0, len(t.peers))
 	for _, p := range t.peers {
 		list = append(list, p)
 	}
 	return list
 }
 
-func (t *Transport) Start(ctx context.Context) error {
+func (t *LanTransport) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	t.cancel = cancel
 
@@ -107,7 +105,7 @@ func (t *Transport) Start(ctx context.Context) error {
 	return nil
 }
 
-func (t *Transport) Stop() error {
+func (t *LanTransport) Stop() error {
 	if t.cancel != nil {
 		t.cancel()
 	}
@@ -121,7 +119,7 @@ func (t *Transport) Stop() error {
 	return nil
 }
 
-func (t *Transport) broadcastPings(ctx context.Context) {
+func (t *LanTransport) broadcastPings(ctx context.Context) {
 	defer t.wg.Done()
 
 	localAddr := t.getLocalIP()
@@ -139,7 +137,6 @@ func (t *Transport) broadcastPings(ctx context.Context) {
 		return
 	}
 
-	// Kirim segera
 	t.sendDiscovery(data, bcastAddr)
 
 	ticker := time.NewTicker(pingInterval)
@@ -155,7 +152,7 @@ func (t *Transport) broadcastPings(ctx context.Context) {
 	}
 }
 
-func (t *Transport) sendDiscovery(data []byte, addr *net.UDPAddr) {
+func (t *LanTransport) sendDiscovery(data []byte, addr *net.UDPAddr) {
 	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
 		return
@@ -164,7 +161,7 @@ func (t *Transport) sendDiscovery(data []byte, addr *net.UDPAddr) {
 	conn.Write(data)
 }
 
-func (t *Transport) listenDiscovery(ctx context.Context) {
+func (t *LanTransport) listenDiscovery(ctx context.Context) {
 	defer t.wg.Done()
 
 	buf := make([]byte, 2048)
@@ -208,7 +205,7 @@ func (t *Transport) listenDiscovery(ctx context.Context) {
 	}
 }
 
-func (t *Transport) listenTransfers(ctx context.Context) {
+func (t *LanTransport) listenTransfers(ctx context.Context) {
 	defer t.wg.Done()
 
 	for {
@@ -230,18 +227,18 @@ func (t *Transport) listenTransfers(ctx context.Context) {
 	}
 }
 
-func (t *Transport) handleTransfer(conn net.Conn) {
+func (t *LanTransport) handleTransfer(conn net.Conn) {
 	defer conn.Close()
 
-	headerBuf, err := core.ReadMsg(conn)
+	headerBuf, err := ReadMsg(conn)
 	if err != nil {
 		return
 	}
 
 	var msg struct {
-		Type     string                    `json:"type"`
-		Meta     core.FileMeta             `json:"meta,omitempty"`
-		Snapshot map[string]core.FileMeta  `json:"snapshot,omitempty"`
+		Type     string              `json:"type"`
+		Meta     FileMeta            `json:"meta,omitempty"`
+		Snapshot map[string]FileMeta `json:"snapshot,omitempty"`
 	}
 	if err := json.Unmarshal(headerBuf, &msg); err != nil {
 		return
@@ -251,7 +248,7 @@ func (t *Transport) handleTransfer(conn net.Conn) {
 	case "meta":
 		t.metaCh <- msg.Meta
 	case "file":
-		t.fileCh <- core.FileTransfer{
+		t.fileCh <- FileTransfer{
 			Meta: msg.Meta,
 			Data: io.NopCloser(conn),
 		}
@@ -263,7 +260,7 @@ func (t *Transport) handleTransfer(conn net.Conn) {
 	}
 }
 
-func (t *Transport) sendFileResponse(conn net.Conn, meta core.FileMeta, localPath string) {
+func (t *LanTransport) sendFileResponse(conn net.Conn, meta FileMeta, localPath string) {
 	f, err := os.Open(localPath)
 	if err != nil {
 		return
@@ -271,16 +268,16 @@ func (t *Transport) sendFileResponse(conn net.Conn, meta core.FileMeta, localPat
 	defer f.Close()
 
 	resp := struct {
-		Type string       `json:"type"`
-		Meta core.FileMeta `json:"meta"`
+		Type string   `json:"type"`
+		Meta FileMeta `json:"meta"`
 	}{"file-response", meta}
 	respData, _ := json.Marshal(resp)
 
-	core.WriteMsg(conn, respData)
+	WriteMsg(conn, respData)
 	io.Copy(conn, f)
 }
 
-func (t *Transport) SendMeta(peer core.PeerInfo, meta core.FileMeta) error {
+func (t *LanTransport) SendMeta(peer PeerInfo, meta FileMeta) error {
 	conn, err := net.Dial("tcp", peer.Address)
 	if err != nil {
 		return err
@@ -288,14 +285,14 @@ func (t *Transport) SendMeta(peer core.PeerInfo, meta core.FileMeta) error {
 	defer conn.Close()
 
 	msg := struct {
-		Type string       `json:"type"`
-		Meta core.FileMeta `json:"meta"`
+		Type string   `json:"type"`
+		Meta FileMeta `json:"meta"`
 	}{"meta", meta}
 	data, _ := json.Marshal(msg)
-	return core.WriteMsg(conn, data)
+	return WriteMsg(conn, data)
 }
 
-func (t *Transport) SendFile(peer core.PeerInfo, meta core.FileMeta, data io.Reader) error {
+func (t *LanTransport) SendFile(peer PeerInfo, meta FileMeta, data io.Reader) error {
 	conn, err := net.Dial("tcp", peer.Address)
 	if err != nil {
 		return err
@@ -303,35 +300,34 @@ func (t *Transport) SendFile(peer core.PeerInfo, meta core.FileMeta, data io.Rea
 	defer conn.Close()
 
 	msg := struct {
-		Type string       `json:"type"`
-		Meta core.FileMeta `json:"meta"`
+		Type string   `json:"type"`
+		Meta FileMeta `json:"meta"`
 	}{"file", meta}
 	msgData, _ := json.Marshal(msg)
-	if err := core.WriteMsg(conn, msgData); err != nil {
+	if err := WriteMsg(conn, msgData); err != nil {
 		return err
 	}
 	_, err = io.Copy(conn, data)
 	return err
 }
 
-func (t *Transport) ResolveFile(peer core.PeerInfo, meta core.FileMeta) (io.ReadCloser, error) {
+func (t *LanTransport) ResolveFile(peer PeerInfo, meta FileMeta) (io.ReadCloser, error) {
 	conn, err := net.Dial("tcp", peer.Address)
 	if err != nil {
 		return nil, err
 	}
 
 	msg := struct {
-		Type string       `json:"type"`
-		Meta core.FileMeta `json:"meta"`
+		Type string   `json:"type"`
+		Meta FileMeta `json:"meta"`
 	}{"request", meta}
 	data, _ := json.Marshal(msg)
-	if err := core.WriteMsg(conn, data); err != nil {
+	if err := WriteMsg(conn, data); err != nil {
 		conn.Close()
 		return nil, err
 	}
 
-	// Baca response header
-	_, err = core.ReadMsg(conn)
+	_, err = ReadMsg(conn)
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -340,7 +336,7 @@ func (t *Transport) ResolveFile(peer core.PeerInfo, meta core.FileMeta) (io.Read
 	return conn, nil
 }
 
-func (t *Transport) BroadcastMeta(meta core.FileMeta) error {
+func (t *LanTransport) BroadcastMeta(meta FileMeta) error {
 	for _, p := range t.Peers() {
 		if err := t.SendMeta(p, meta); err != nil {
 			log.Printf("Broadcast meta ke %s gagal: %v", p.ID, err)
@@ -349,7 +345,7 @@ func (t *Transport) BroadcastMeta(meta core.FileMeta) error {
 	return nil
 }
 
-func (t *Transport) BroadcastSnapshot(snapshot map[string]core.FileMeta) error {
+func (t *LanTransport) BroadcastSnapshot(snapshot map[string]FileMeta) error {
 	for _, peer := range t.Peers() {
 		conn, err := net.Dial("tcp", peer.Address)
 		if err != nil {
@@ -357,27 +353,27 @@ func (t *Transport) BroadcastSnapshot(snapshot map[string]core.FileMeta) error {
 		}
 
 		msg := struct {
-			Type     string                    `json:"type"`
-			Snapshot map[string]core.FileMeta  `json:"snapshot"`
+			Type     string              `json:"type"`
+			Snapshot map[string]FileMeta `json:"snapshot"`
 		}{"snapshot", snapshot}
 		data, _ := json.Marshal(msg)
-		core.WriteMsg(conn, data)
+		WriteMsg(conn, data)
 		conn.Close()
 	}
 	return nil
 }
 
-func (t *Transport) addPeer(id, name, address string) {
+func (t *LanTransport) addPeer(id, name, address string) {
 	t.peersMu.Lock()
 	defer t.peersMu.Unlock()
 	if id == t.id {
 		return
 	}
-	t.peers[id] = core.PeerInfo{ID: id, Name: name, Address: address}
+	t.peers[id] = PeerInfo{ID: id, Name: name, Address: address}
 	log.Printf("Peer ditemukan: %s (%s) @ %s", name, id[:8], address)
 }
 
-func (t *Transport) getLocalIP() string {
+func (t *LanTransport) getLocalIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		return "127.0.0.1"

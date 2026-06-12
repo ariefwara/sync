@@ -1,4 +1,4 @@
-module github.com/ariefwara/sync
+module github.com/ariefwara/lan-sync
 
 go 1.24
 

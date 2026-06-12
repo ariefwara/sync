@@ -1,13 +1,13 @@
-# lansync — P2P Folder Sync over LAN
+# lan-sync — P2P Folder Sync over LAN
 
 Zero-config peer-to-peer folder synchronization for local networks. No server, no setup, no cloud.
 
 ```bash
 # On machine A
-lansync ./project
+lan-sync ./project
 
 # On machine B
-lansync ./project
+lan-sync ./project
 ```
 
 Files are synced in real-time via UDP discovery + TCP transfer.
@@ -17,25 +17,25 @@ Files are synced in real-time via UDP discovery + TCP transfer.
 ### macOS / Linux (one-liner)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/ariefwara/sync/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ariefwara/lan-sync/main/install.sh | bash
 ```
 
-Installs to `/usr/local/bin/lansync`.
+Installs to `/usr/local/bin/lan-sync`.
 
 ### Windows (PowerShell)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/ariefwara/sync/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/ariefwara/lan-sync/main/install.ps1 | iex"
 ```
 
-Installs to `%USERPROFILE%\go\bin\lansync.exe`.
+Installs to `%USERPROFILE%\go\bin\lan-sync.exe`.
 
-### Build from source (any OS)
+### Build from source
 
 ```bash
-git clone https://github.com/ariefwara/sync.git
-cd sync
-go build -o /usr/local/bin/lansync ./cmd/lansync
+git clone https://github.com/ariefwara/lan-sync.git
+cd lan-sync
+go build -o /usr/local/bin/lan-sync .
 ```
 
 Requires Go 1.21+.
@@ -43,8 +43,8 @@ Requires Go 1.21+.
 ## Usage
 
 ```bash
-lansync .                  # sync current directory
-lansync ~/Documents/proj   # sync a specific directory
+lan-sync .                  # sync current directory
+lan-sync ~/Documents/proj   # sync a specific directory
 ```
 
 The device name is taken from your OS hostname automatically. No flags, no config file.
@@ -53,16 +53,16 @@ The device name is taken from your OS hostname automatically. No flags, no confi
 
 **Machine A (MacBook):**
 ```
-$ lansync ~/projects/notes
-lansync — syncing /Users/alice/projects/notes
+$ lan-sync ~/projects/notes
+lan-sync — syncing /Users/alice/projects/notes
       device: macbook-pro
       waiting for peers on LAN...
 ```
 
 **Machine B (Desktop):**
 ```
-$ lansync ~/projects/notes
-lansync — syncing /home/bob/projects/notes
+$ lan-sync ~/projects/notes
+lan-sync — syncing /home/bob/projects/notes
       device: desktop-pc
       waiting for peers on LAN...
 
@@ -105,7 +105,7 @@ It appears on the other machine in seconds:
 If another instance is already running on the same ports, the second one exits immediately:
 
 ```
-lansync is already running (port 43211 is in use)
+lan-sync is already running (port 43211 is in use)
 ```
 
 ## Limitations

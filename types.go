@@ -1,10 +1,8 @@
-// Package core menyediakan mesin sinkronisasi file yang digunakan oleh
-// semua opsi transport. Mencakup file index, file watcher, dan logika
-// sinkronisasi utama.
-package core
+package main
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -14,16 +12,16 @@ import (
 	"time"
 )
 
-// FileMeta menyimpan metadata sebuah file.
+// ---- types ----
+
 type FileMeta struct {
 	Path    string `json:"path"`
 	Size    int64  `json:"size"`
-	ModTime int64  `json:"mod_time"` // Unix nano
-	Hash    string `json:"hash"`     // SHA256 hex
+	ModTime int64  `json:"mod_time"`
+	Hash    string `json:"hash"`
 	IsDir   bool   `json:"is_dir"`
 }
 
-// FileTransfer merepresentasikan file yang sedang dikirim/diterima.
 type FileTransfer struct {
 	Meta   FileMeta
 	Data   io.ReadCloser
@@ -31,7 +29,6 @@ type FileTransfer struct {
 	Error  error
 }
 
-// ChangeType mendeskripsikan jenis perubahan file.
 type ChangeType int
 
 const (
@@ -53,35 +50,29 @@ func (ct ChangeType) String() string {
 	}
 }
 
-// FileChange merepresentasikan satu perubahan file.
 type FileChange struct {
 	Type ChangeType
 	Meta FileMeta
 }
 
-// PeerInfo menyimpan informasi tentang peer lain.
 type PeerInfo struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
-	Address string `json:"address"` // host:port
+	Address string `json:"address"`
 }
 
-// PeerState menyimpan state sinkronisasi dengan satu peer.
 type PeerState struct {
 	Peer       PeerInfo
 	LastSync   time.Time
-	RemoteHash string // hash snapshot terakhir dari remote
+	RemoteHash string
 }
 
-// FileIndex adalah thread-safe index dari semua file yang di-track.
-// Menyimpan hash SHA256 untuk mendeteksi perubahan konten.
 type FileIndex struct {
-	mu     sync.RWMutex
-	files  map[string]FileMeta // key = relative path
-	root   string
+	mu    sync.RWMutex
+	files map[string]FileMeta
+	root  string
 }
 
-// NewFileIndex membuat FileIndex baru untuk direktori root.
 func NewFileIndex(root string) *FileIndex {
 	return &FileIndex{
 		files: make(map[string]FileMeta),
@@ -89,17 +80,14 @@ func NewFileIndex(root string) *FileIndex {
 	}
 }
 
-// Root mengembalikan path root.
 func (fi *FileIndex) Root() string { return fi.root }
 
-// Set memperbarui atau menambahkan file ke index.
 func (fi *FileIndex) Set(path string, meta FileMeta) {
 	fi.mu.Lock()
 	defer fi.mu.Unlock()
 	fi.files[path] = meta
 }
 
-// Get mengambil metadata file dari index.
 func (fi *FileIndex) Get(path string) (FileMeta, bool) {
 	fi.mu.RLock()
 	defer fi.mu.RUnlock()
@@ -107,14 +95,12 @@ func (fi *FileIndex) Get(path string) (FileMeta, bool) {
 	return m, ok
 }
 
-// Delete menghapus file dari index.
 func (fi *FileIndex) Delete(path string) {
 	fi.mu.Lock()
 	defer fi.mu.Unlock()
 	delete(fi.files, path)
 }
 
-// Snapshot mengembalikan salinan semua file yang di-track.
 func (fi *FileIndex) Snapshot() map[string]FileMeta {
 	fi.mu.RLock()
 	defer fi.mu.RUnlock()
@@ -125,7 +111,6 @@ func (fi *FileIndex) Snapshot() map[string]FileMeta {
 	return snap
 }
 
-// AllFiles mengembalikan semua file yang di-track.
 func (fi *FileIndex) AllFiles() []FileMeta {
 	fi.mu.RLock()
 	defer fi.mu.RUnlock()
@@ -136,7 +121,8 @@ func (fi *FileIndex) AllFiles() []FileMeta {
 	return files
 }
 
-// HashFile menghitung SHA256 hash dari sebuah file.
+// ---- hash & scan ----
+
 func HashFile(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -151,7 +137,6 @@ func HashFile(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// ScanDirectory memindai direktori dan mengembalikan semua file beserta hash-nya.
 func ScanDirectory(root string) (map[string]FileMeta, error) {
 	files := make(map[string]FileMeta)
 
@@ -159,8 +144,6 @@ func ScanDirectory(root string) (map[string]FileMeta, error) {
 		if err != nil {
 			return err
 		}
-
-		// Skip root directory itself
 		if absPath == root {
 			return nil
 		}
@@ -190,4 +173,42 @@ func ScanDirectory(root string) (map[string]FileMeta, error) {
 	})
 
 	return files, err
+}
+
+// ---- binary I/O ----
+
+func ReadInt32(r io.Reader) (int32, error) {
+	var v int32
+	err := binary.Read(r, binary.LittleEndian, &v)
+	return v, err
+}
+
+func WriteInt32(w io.Writer, v int32) error {
+	return binary.Write(w, binary.LittleEndian, v)
+}
+
+func ReadExact(r io.Reader, n int) ([]byte, error) {
+	buf := make([]byte, n)
+	_, err := io.ReadFull(r, buf)
+	return buf, err
+}
+
+func WriteExact(w io.Writer, data []byte) error {
+	_, err := w.Write(data)
+	return err
+}
+
+func ReadMsg(r io.Reader) ([]byte, error) {
+	length, err := ReadInt32(r)
+	if err != nil {
+		return nil, fmt.Errorf("read msg length: %w", err)
+	}
+	return ReadExact(r, int(length))
+}
+
+func WriteMsg(w io.Writer, data []byte) error {
+	if err := WriteInt32(w, int32(len(data))); err != nil {
+		return fmt.Errorf("write msg length: %w", err)
+	}
+	return WriteExact(w, data)
 }

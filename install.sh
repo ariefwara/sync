@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="ariefwara/sync"
-BIN="${SYNC_BIN:-/usr/local/bin/lansync}"
+REPO="ariefwara/lan-sync"
+BIN="${SYNC_BIN:-/usr/local/bin/lan-sync}"
 TMPDIR=""
 
 cleanup() { rm -rf "$TMPDIR"; }
@@ -59,7 +59,7 @@ if [ -z "${FALLBACK:-}" ]; then
       
       echo ""
       info "Installed to $BIN"
-      info "Run 'lansync .' to start syncing the current directory"
+      info "Run 'lan-sync .' to start syncing the current directory"
       exit 0
     fi
   else
@@ -78,12 +78,12 @@ if [ -n "${FALLBACK:-}" ]; then
   info "Cloning $REPO ..."
   git clone --depth=1 "https://github.com/$REPO.git" . 2>/dev/null || err "Failed to clone repository"
 
-  info "Building lansync ..."
-  go build -o "$BIN" ./cmd/lansync 2>&1 || err "Build failed"
+  info "Building lan-sync ..."
+  go build -o "$BIN" . 2>&1 || err "Build failed"
   chmod +x "$BIN"
 
   echo ""
   info "Installed to $BIN (built from source)"
-  info "Run 'lansync .' to start syncing the current directory"
+  info "Run 'lan-sync .' to start syncing the current directory"
   exit 0
 fi
