@@ -22,10 +22,12 @@ case "$ARCH" in
   aarch64|arm64) ARCH="arm64" ;;
   *) warn "Unsupported architecture: $ARCH — falling back to source build"; FALLBACK=1 ;;
 esac
-if [ "$OS" != "linux" ]; then
-  warn "Only Linux binary is pre-built — falling back to source build"
-  FALLBACK=1
-fi
+# Normalize OS names for GitHub release asset names
+case "$OS" in
+  linux)   RELEASE_OS="linux" ;;
+  darwin)  RELEASE_OS="darwin" ;;
+  *)       warn "Unsupported OS: $OS — falling back to source build"; FALLBACK=1 ;;
+esac
 
 # ---- try downloading pre-built binary ----
 if [ -z "${FALLBACK:-}" ]; then
@@ -35,10 +37,11 @@ if [ -z "${FALLBACK:-}" ]; then
   
   # Get latest release download URL
   API_URL="https://api.github.com/repos/$REPO/releases/latest"
-  DOWNLOAD_URL=$(curl -sSL "$API_URL" | grep -oP '"browser_download_url": "\K[^"]*sync-linux-amd64[^"]*' | head -1 || true)
+  ASSET="sync-${RELEASE_OS}-${ARCH}"
+  DOWNLOAD_URL=$(curl -sSL "$API_URL" | grep -oP '"browser_download_url": "\K[^"]*'"$ASSET"'[^"]*' | head -1 || true)
   
   if [ -n "$DOWNLOAD_URL" ]; then
-    info "Downloading sync-linux-amd64 ..."
+    info "Downloading $ASSET ..."
     curl -sSL -o "$TMPDIR/sync" "$DOWNLOAD_URL" || { warn "Download failed — falling back to source build"; FALLBACK=1; }
     
     if [ -z "${FALLBACK:-}" ]; then
