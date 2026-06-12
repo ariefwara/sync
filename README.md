@@ -115,23 +115,6 @@ sync is already running (port 43211 is in use)
 - **Conflict resolution** — *last-writer-wins* (the file with the most recent modification time wins).
 - **Not a backup** — deletes are propagated. If you delete a file on one machine, it is deleted everywhere.
 
-## All transport options
-
-This repo includes 5 transport backends for different needs:
-
-| Binary | Discovery | Range |
-|--------|-----------|-------|
-| `sync-lan` (default) | UDP broadcast | LAN (1 subnet) |
-| `sync-mdns` | mDNS/DNS-SD | LAN (multi subnet) |
-| `sync-dht` | Kademlia DHT | Internet |
-| `sync-pex` | Peer Exchange | Internet |
-| `sync-webrtc` | WebRTC | Internet (NAT traversal) |
-
-Build any of them:
-```bash
-go build -o sync-dht ./cmd/sync-dht
-```
-
 ## License
 
 MIT
