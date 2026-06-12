@@ -18,15 +18,15 @@ jobs:
           - goos: windows
             goarch: amd64
             ext: '.exe'
-            runner: windows-latest
+            runner: ubuntu-latest
           - goos: darwin
             goarch: amd64
             ext: ''
-            runner: macos-13
+            runner: ubuntu-latest
           - goos: darwin
             goarch: arm64
             ext: ''
-            runner: macos-latest
+            runner: ubuntu-latest
 
     runs-on: ${{ matrix.runner }}
     steps:
