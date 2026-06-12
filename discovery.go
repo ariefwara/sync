@@ -339,7 +339,7 @@ func (t *LanTransport) ResolveFile(peer PeerInfo, meta FileMeta) (io.ReadCloser,
 func (t *LanTransport) BroadcastMeta(meta FileMeta) error {
 	for _, p := range t.Peers() {
 		if err := t.SendMeta(p, meta); err != nil {
-			log.Printf("Broadcast meta ke %s gagal: %v", p.ID, err)
+			log.Printf("Broadcast meta to %s failed: %v", p.ID, err)
 		}
 	}
 	return nil
@@ -370,7 +370,7 @@ func (t *LanTransport) addPeer(id, name, address string) {
 		return
 	}
 	t.peers[id] = PeerInfo{ID: id, Name: name, Address: address}
-	log.Printf("Peer ditemukan: %s (%s) @ %s", name, id[:8], address)
+	log.Printf("Peer found: %s (%s) @ %s", name, id[:8], address)
 }
 
 func (t *LanTransport) getLocalIP() string {

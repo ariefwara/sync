@@ -1,11 +1,11 @@
-// lan-sync — sinkronisasi folder P2P via LAN.
+// lan-sync — P2P folder sync over LAN.
 //
-// Penggunaan:
-//   lan-sync .          sync folder saat ini
-//   lan-sync /path      sync folder tertentu
+// Usage:
+//   lan-sync .          sync current directory
+//   lan-sync /path      sync a specific directory
 //
-// Nama komputer diambil otomatis dari OS. Jika port sudah dipakai
-// (instance lain sudah jalan), maka yang kedua langsung exit.
+// Hostname is auto-detected from the OS. If the port is already in use
+// (another instance is running), the second one exits immediately.
 package main
 
 import (
@@ -31,10 +31,10 @@ func main() {
 	}
 
 	if info, err := os.Stat(absDir); err != nil {
-		fmt.Fprintf(os.Stderr, "error: direktori %s tidak ditemukan\n", absDir)
+		fmt.Fprintf(os.Stderr, "error: directory %s not found\n", absDir)
 		os.Exit(1)
 	} else if !info.IsDir() {
-		fmt.Fprintf(os.Stderr, "error: %s bukan direktori\n", absDir)
+		fmt.Fprintf(os.Stderr, "error: %s is not a directory\n", absDir)
 		os.Exit(1)
 	}
 
@@ -54,13 +54,13 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		fmt.Println("\nberhenti.")
+		fmt.Println("\nshutdown.")
 		cancel()
 	}()
 
-	fmt.Printf("lan-sync — mensinkronkan %s\n", absDir)
+	fmt.Printf("lan-sync — syncing %s\n", absDir)
 	fmt.Printf("      device: %s\n", hostname)
-	fmt.Println("      menunggu peer di LAN...")
+	fmt.Println("      waiting for peers on LAN...")
 	fmt.Println()
 
 	go func() {
@@ -71,9 +71,9 @@ func main() {
 			case "file-received":
 				fmt.Printf("  ↓ %s\n", evt.FilePath)
 			case "peer-joined":
-				fmt.Printf("  + peer bergabung\n")
+				fmt.Printf("  + peer joined\n")
 			case "peer-left":
-				fmt.Printf("  - peer pergi\n")
+				fmt.Printf("  - peer left\n")
 			}
 		}
 	}()
@@ -81,7 +81,7 @@ func main() {
 	if err := syncer.Run(ctx); err != nil && err != context.Canceled {
 		if strings.Contains(err.Error(), "address already in use") ||
 			strings.Contains(err.Error(), "EADDRINUSE") {
-			fmt.Fprintf(os.Stderr, "lan-sync sudah berjalan di folder ini (port 43211 sudah dipakai)\n")
+			fmt.Fprintf(os.Stderr, "lan-sync is already running (port 43211 is in use)\n")
 			os.Exit(1)
 		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

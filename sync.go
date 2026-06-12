@@ -101,7 +101,7 @@ func (s *Syncer) Peers() []PeerInfo                { return s.trans.Peers() }
 func (s *Syncer) SelfID() string                   { return s.trans.SelfID() }
 
 func (s *Syncer) Run(ctx context.Context) error {
-	log.Println("Menjalankan scan awal...")
+	log.Println("Running initial scan...")
 	files, err := ScanDirectory(s.root)
 	if err != nil {
 		return fmt.Errorf("initial scan: %w", err)
@@ -109,22 +109,22 @@ func (s *Syncer) Run(ctx context.Context) error {
 	for path, meta := range files {
 		s.index.Set(path, meta)
 	}
-	log.Printf("Scan awal selesai: %d file", len(files))
+	log.Printf("Initial scan complete: %d files", len(files))
 
 	if err := s.trans.Start(ctx); err != nil {
 		return fmt.Errorf("start transport: %w", err)
 	}
-	log.Printf("Transport siap, device: %s, ID: %s", s.deviceName, s.trans.SelfID())
+	log.Printf("Transport ready, device: %s, ID: %s", s.deviceName, s.trans.SelfID())
 
 	if err := s.trans.BroadcastSnapshot(s.index.Snapshot()); err != nil {
-		log.Printf("Broadcast snapshot awal gagal: %v", err)
+		log.Printf("Initial snapshot broadcast failed: %v", err)
 	}
 
 	if err := s.watcher.Start(ctx); err != nil {
 		return fmt.Errorf("start watcher: %w", err)
 	}
 
-	log.Println("Sinkronisasi berjalan. Menunggu perubahan...")
+	log.Println("Sync running. Waiting for changes...")
 
 	for {
 		select {
@@ -147,31 +147,31 @@ func (s *Syncer) Run(ctx context.Context) error {
 }
 
 func (s *Syncer) handleLocalChange(ctx context.Context, change FileChange) {
-	log.Printf("Perubahan lokal: %s %s", change.Type, change.Meta.Path)
+	log.Printf("Local change: %s %s", change.Type, change.Meta.Path)
 
 	switch change.Type {
 	case ChangeCreated, ChangeModified:
 		if !change.Meta.IsDir {
 			if err := s.trans.BroadcastMeta(change.Meta); err != nil {
-				log.Printf("Broadcast meta gagal: %v", err)
+				log.Printf("Broadcast meta failed: %v", err)
 			}
 			s.emitEvent("file-sent", change.Meta.Path, "")
 		}
 	case ChangeDeleted:
 		delMeta := FileMeta{Path: change.Meta.Path, Hash: ""}
 		if err := s.trans.BroadcastMeta(delMeta); err != nil {
-			log.Printf("Broadcast delete gagal: %v", err)
+			log.Printf("Broadcast delete failed: %v", err)
 		}
 	}
 }
 
 func (s *Syncer) handleRemoteMeta(ctx context.Context, meta FileMeta) {
-	log.Printf("Meta diterima: %s (hash=%s)", meta.Path, shortHash(meta.Hash))
+	log.Printf("Meta received: %s (hash=%s)", meta.Path, shortHash(meta.Hash))
 
 	if meta.Hash == "" {
 		localPath := filepath.Join(s.root, meta.Path)
 		if err := os.RemoveAll(localPath); err != nil {
-			log.Printf("Hapus file gagal: %v", err)
+			log.Printf("Remove file failed: %v", err)
 		}
 		s.index.Delete(meta.Path)
 		s.emitEvent("file-received", meta.Path, "DELETE")
@@ -197,26 +197,26 @@ func (s *Syncer) handleRemoteMeta(ctx context.Context, meta FileMeta) {
 
 	peer := s.findPeerByMeta(meta)
 	if peer == nil {
-		log.Printf("Tidak ada peer yang dikenal untuk file: %s", meta.Path)
+		log.Printf("No known peer for file: %s", meta.Path)
 		return
 	}
 
 	reader, err := s.trans.ResolveFile(*peer, meta)
 	if err != nil {
-		log.Printf("Gagal meminta file %s: %v", meta.Path, err)
+		log.Printf("Failed to request file %s: %v", meta.Path, err)
 		return
 	}
 
 	localPath := filepath.Join(s.root, meta.Path)
 	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
-		log.Printf("Buat direktori gagal: %v", err)
+		log.Printf("Create directory failed: %v", err)
 		reader.Close()
 		return
 	}
 
 	dst, err := os.Create(localPath)
 	if err != nil {
-		log.Printf("Buat file gagal: %v", err)
+		log.Printf("Create file failed: %v", err)
 		reader.Close()
 		return
 	}
@@ -225,14 +225,14 @@ func (s *Syncer) handleRemoteMeta(ctx context.Context, meta FileMeta) {
 	reader.Close()
 	dst.Close()
 	if err != nil {
-		log.Printf("Simpan file gagal: %v", err)
+		log.Printf("Save file failed: %v", err)
 		return
 	}
 
 	meta.Size = written
 	s.index.Set(meta.Path, meta)
 
-	log.Printf("File diterima: %s (%d bytes)", meta.Path, written)
+	log.Printf("File received: %s (%d bytes)", meta.Path, written)
 	s.emitEvent("file-received", meta.Path, "")
 }
 
@@ -240,38 +240,38 @@ func (s *Syncer) handleRemoteFile(ctx context.Context, transfer FileTransfer) {
 	defer transfer.Data.Close()
 
 	if transfer.Error != nil {
-		log.Printf("Error transfer file %s dari %s: %v", transfer.Meta.Path, transfer.PeerID, transfer.Error)
+		log.Printf("File transfer error %s from %s: %v", transfer.Meta.Path, transfer.PeerID, transfer.Error)
 		return
 	}
 
 	localPath := filepath.Join(s.root, transfer.Meta.Path)
 	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
-		log.Printf("Buat direktori gagal: %v", err)
+		log.Printf("Create directory failed: %v", err)
 		return
 	}
 
 	dst, err := os.Create(localPath)
 	if err != nil {
-		log.Printf("Buat file gagal: %v", err)
+		log.Printf("Create file failed: %v", err)
 		return
 	}
 	defer dst.Close()
 
 	written, err := io.Copy(dst, transfer.Data)
 	if err != nil {
-		log.Printf("Simpan file gagal: %v", err)
+		log.Printf("Save file failed: %v", err)
 		return
 	}
 
 	transfer.Meta.Size = written
 	s.index.Set(transfer.Meta.Path, transfer.Meta)
 
-	log.Printf("File diterima (push): %s (%d bytes)", transfer.Meta.Path, written)
+	log.Printf("File received (push): %s (%d bytes)", transfer.Meta.Path, written)
 	s.emitEvent("file-received", transfer.Meta.Path, transfer.PeerID)
 }
 
 func (s *Syncer) handleRemoteSnapshot(ctx context.Context, remote map[string]FileMeta) {
-	log.Printf("Snapshot diterima: %d file", len(remote))
+	log.Printf("Snapshot received: %d files", len(remote))
 
 	local := s.index.Snapshot()
 	root := s.root
@@ -285,7 +285,7 @@ func (s *Syncer) handleRemoteSnapshot(ctx context.Context, remote map[string]Fil
 		if !exists || lMeta.Hash != rMeta.Hash {
 			localPath := filepath.Join(root, path)
 			if _, err := os.Stat(localPath); os.IsNotExist(err) {
-				log.Printf("File hilang, request dari remote: %s", path)
+				log.Printf("File missing, requesting from remote: %s", path)
 				s.trans.BroadcastMeta(rMeta)
 			}
 		}
